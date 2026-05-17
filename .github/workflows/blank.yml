@@ -1,0 +1,58 @@
+name: Multi-Repo Issue Watcher
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # every 5 minutes
+  workflow_dispatch:         # allows manual trigger
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check issues and notify
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NTFY_USER: ${{ secrets.NTFY_USER }}
+          NTFY_PASS: ${{ secrets.NTFY_PASS }}
+        run: |
+          SINCE=$(date -u -d '6 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
+
+          # Loop over each repo/label combo defined in repos.json
+          jq -c '.[]' repos.json | while read -r entry; do
+            REPO=$(echo "$entry" | jq -r '.repo')
+            LABELS=$(echo "$entry" | jq -r '.labels[]')
+
+            for LABEL in $LABELS; do
+              ENCODED_LABEL=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$LABEL'))")
+
+              ISSUES=$(curl -s \
+                -H "Authorization: token $GH_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/$REPO/issues?labels=$ENCODED_LABEL&state=open&sort=created&direction=desc&per_page=10")
+
+              # Filter only issues created since last check
+              NEW_ISSUES=$(echo "$ISSUES" | jq -r \
+                --arg since "$SINCE" \
+                '.[] | select(.pull_request == null) | select(.created_at > $since) | "\(.title)|\(.html_url)"')
+
+              # Send a separate ntfy notification per new issue
+              while IFS='|' read -r TITLE URL; do
+                [ -z "$TITLE" ] && continue
+
+                curl -s -X POST "https://ntfy.sh/$NTFY_TOPIC" \
+                  -u "$NTFY_USER:$NTFY_PASS" \
+                  -H "Title: 🚀 [$REPO]" \
+                  -H "Priority: high" \
+                  -H "Tags: bell,rocket" \
+                  -H "Click: $URL" \
+                  -H "Actions: view, Open Issue, $URL" \
+                  -d "[$LABEL] $TITLE"
+
+              done <<< "$NEW_ISSUES"
+            done
+          done
