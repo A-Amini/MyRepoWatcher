@@ -8,20 +8,5 @@
         "repo": "deepset-ai/haystack-core-integrations",
         "labels": ["contributions wanted!"],
         "state": "open"
-    },
-    {
-        "repo": "huggingface/transformers",
-        "labels": ["good first issue"],
-        "status": "open"
-    },
-    {
-        "repo": "pytorch/pytorch",
-        "labels": ["good first issue"],
-        "status": "open"
-    },
-    {
-        "repo": "tensorflow/tensorflow",
-        "labels": ["good first issue"],
-        "status": "open"
     }
 ]
