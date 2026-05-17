@@ -2,7 +2,7 @@ name: Multi-Repo Issue Watcher
 
 on:
   schedule:
-    - cron: '*/30 * * * *'   # every 30 minutes
+    - cron: '0 */2 * * *'   # every 30 minutes
   workflow_dispatch:         # allows manual trigger
 
 jobs:
@@ -20,7 +20,7 @@ jobs:
           #NTFY_USER: ${{ secrets.NTFY_USER }}
           #NTFY_PASS: ${{ secrets.NTFY_PASS }}
         run: |
-          SINCE=$(date -u -d '31 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
+          SINCE=$(date -u -d '121 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
 
           # Loop over each repo/label combo defined in repos.json
           jq -c '.[]' repos.json | while read -r entry; do
