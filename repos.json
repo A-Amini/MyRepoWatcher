@@ -5,6 +5,11 @@
         "state": "open"
     }, 
     {
+        "repo": "deepset-ai/haystack-core-integrations",
+        "labels": ["contributions wanted!"],
+        "state": "open"
+    },
+    {
         "repo": "huggingface/transformers",
         "labels": ["good first issue"],
         "status": "open"
