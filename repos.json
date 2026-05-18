@@ -8,5 +8,20 @@
         "repo": "deepset-ai/haystack-core-integrations",
         "labels": ["contributions wanted!"],
         "state": "open"
+    },
+    {
+        "repo": "langchain-ai/langgraph",
+        "labels": ["help wanted"],
+        "state": "open"
+    },
+    {
+        "repo": "langchain-ai/langchain",
+        "labels": ["help wanted"],
+        "state": "open"
+    },
+    {
+        "repo": "langchain-ai/deepagents",
+        "labels": ["help wanted"],
+        "state": "open"
     }
 ]
