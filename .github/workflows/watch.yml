@@ -2,7 +2,7 @@ name: Multi-Repo Issue Watcher
 
 on:
   schedule:
-    - cron: '0 */2 * * *'   # every 30 minutes
+    - cron: '0 */4 * * *'   # every 4 hours
   workflow_dispatch:         # allows manual trigger
 
 jobs:
@@ -20,29 +20,43 @@ jobs:
           #NTFY_USER: ${{ secrets.NTFY_USER }}
           #NTFY_PASS: ${{ secrets.NTFY_PASS }}
         run: |
-          SINCE=$(date -u -d '121 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
+          SINCE=$(date -u -d '300 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
 
           # Loop over each repo/label combo defined in repos.json
           jq -c '.[]' repos.json | while read -r entry; do
             REPO=$(echo "$entry" | jq -r '.repo')
-            LABELS=$(echo "$entry" | jq -r '.labels[]')
             STATE=$(echo "$entry" | jq -r '.state')
 
-            for LABEL in $LABELS; do
-              ENCODED_LABEL=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$LABEL'))")
+            echo "$entry" | jq -r '.labels[]' | while read -r LABEL; do
+              ENCODED_LABEL=$(printf '%s' "$LABEL" | python3 -c \
+                "import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read()))
 
               ISSUES=$(curl -s \
                 -H "Authorization: token $GH_TOKEN" \
                 -H "Accept: application/vnd.github+json" \
                 "https://api.github.com/repos/$REPO/issues?labels=$ENCODED_LABEL&state=$STATE&sort=created&direction=desc&per_page=10")
 
-              # Filter only issues created since last check
-              NEW_ISSUES=$(echo "$ISSUES" | jq -r \
-                --arg since "$SINCE" \
-                '.[] | select(.pull_request == null) | select(.created_at > $since) | "\(.title)|\(.html_url)"')
+              ISSUES=$(curl -s \
+                -H "Authorization: token $GH_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/$REPO/issues?labels=$ENCODED_LABEL&state=$STATE&sort=created&direction=desc&per_page=10")
 
-              # Send a separate ntfy notification per new issue
-              while IFS='|' read -r TITLE URL; do
+              if echo "$ISSUES" | jq -e 'has("message")' > /dev/null 2>&1; then
+                echo "⚠️  API error for $REPO [$LABEL]: $(echo "$ISSUES" | jq -r '.message')"
+                continue
+              fi
+
+              TMPFILE=$(mktemp)
+              echo "$ISSUES" | jq -r \
+                --arg since "$SINCE" \
+                '.[] | select(.pull_request == null) | select(.created_at > $since) | [.title, .html_url] | tojson | @base64' \
+                > "$TMPFILE"
+
+              while read -r encoded; do
+                [ -z "$encoded" ] && continue
+                decoded=$(echo "$encoded" | base64 -d)
+                TITLE=$(echo "$decoded" | jq -r '.[0]')
+                URL=$(echo "$decoded"   | jq -r '.[1]')
                 [ -z "$TITLE" ] && continue
 
                 curl -s -X POST "https://ntfy.sh/$NTFY_TOPIC" \
@@ -53,6 +67,8 @@ jobs:
                   -H "Actions: view, Open Issue, $URL" \
                   -d "[$LABEL] $TITLE"
 
-              done <<< "$NEW_ISSUES"
+              done < "$TMPFILE"
+              rm -f "$TMPFILE"
+
             done
           done
