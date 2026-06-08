@@ -34,7 +34,7 @@ jobs:
               ISSUES=$(curl -s \
                 -H "Authorization: token $GH_TOKEN" \
                 -H "Accept: application/vnd.github+json" \
-                "https://api.github.com/repos/$REPO/issues?labels=$ENCODED_LABEL&state=$STATE&sort=created&direction=desc&per_page=10")
+                "https://api.github.com/repos/$REPO/issues?labels=$ENCODED_LABEL&state=$STATE&since=$SINCE&sort=updated&direction=desc&per_page=10")
 
               if echo "$ISSUES" | jq -e 'has("message")' > /dev/null 2>&1; then
                 echo "⚠️  API error for $REPO [$LABEL]: $(echo "$ISSUES" | jq -r '.message')"
@@ -44,7 +44,7 @@ jobs:
               TMPFILE=$(mktemp)
               echo "$ISSUES" | jq -r \
                 --arg since "$SINCE" \
-                '.[] | select(.pull_request == null) | select(.created_at > $since) | [.title, .html_url] | tojson | @base64' \
+                '.[] | select(.pull_request == null) | select(.updated_at > $since) | [.title, .html_url] | tojson | @base64' \
                 > "$TMPFILE"
 
               while read -r encoded; do
